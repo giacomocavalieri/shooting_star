@@ -111,7 +111,7 @@ static Outcome outcome(Grid grid) {
  */
 typedef struct Path {
   int references;
-  const int move;
+  int move;
   struct Path *rest;
 } Path;
 
@@ -180,11 +180,15 @@ static Path *add_move_to_path(Path *path, int move) {
   if (new_path == NULL) {
     return NULL;
   }
-  Path path_data = {.move = move, .rest = path, .references = 1};
-  memcpy(new_path, &path_data, sizeof *new_path);
+
+  new_path->move = move;
+  new_path->references = 1;
+
   // Since this new node is referencing the `path` we have to increase the
   // references to it.
+  new_path->rest = path;
   inc_reference_to_path(path);
+
   return new_path;
 }
 
@@ -249,6 +253,7 @@ static void push_front(Queue *queue, Path *path, Grid grid) {
   if (new_first == NULL) {
     return;
   }
+
   new_first->prev = NULL;
   new_first->next = queue->first;
   new_first->grid = grid;
@@ -307,7 +312,7 @@ static Path *shortest_winning_path(Grid initial) {
   //
   // Each grid has 9 slots that can take 2 different states, so there's only
   // 512 possible grids.
-  char *visited = (char *)calloc(512, sizeof(char));
+  char *visited = (char *)calloc(512, sizeof(bool));
   Queue *to_visit = new_queue();
   if (visited == NULL || to_visit == NULL) {
     free(visited);
@@ -381,20 +386,20 @@ static void print_grid(Grid grid) {
  * from a given initial grid.
  * This is a bit verbose and shows all intermediate steps.
  */
-static Grid explain_path(Path *path, Grid initial) {
+static void print_path_loop(Path *path) {
   if (path == NULL) {
-    printf("Starting from:\n");
-    print_grid(initial);
-    printf("\n\n");
-    return initial;
+    return;
   }
+  print_path_loop(path->rest);
+  printf("%d\n", path->move);
+}
 
-  Grid grid = explain_path(path->rest, initial);
-  Grid new_grid = explode(grid, path->move);
-  printf("You can make %d explode and get to:\n", path->move);
-  print_grid(new_grid);
-  printf("\n\n");
-  return new_grid;
+static void print_path(Path *path) {
+  if (path == NULL) {
+    printf("-1");
+  } else {
+    print_path_loop(path);
+  }
 }
 
 /**
@@ -434,7 +439,7 @@ void play(Grid grid, Mode mode) {
     if (winning_path == NULL) {
       printf("There's no winning sequence of moves!\n");
     } else {
-      explain_path(winning_path, grid);
+      print_path(winning_path);
     }
   }
 
@@ -444,7 +449,9 @@ void play(Grid grid, Mode mode) {
 int main() {
   // We play all possible games in silent mode to check if we can ever leak any
   // memory.
-  for (int grid = empty_grid; grid < 512; grid++) {
-    play(grid, Silent);
-  }
+  // for (int grid = empty_grid; grid < 512; grid++) {
+  //  play(grid, Silent);
+  //}
+
+  play(0b100000000, Chatty);
 }
